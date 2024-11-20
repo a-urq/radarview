@@ -1,5 +1,5 @@
 # RadarView
-A simple Python package that computes ECAPE values and parcel paths. 
+An open-source radar viewer meant to be run on any laptop or desktop. Performant yet powerful.
 
 # Authors and Contributors
 ### **AUTHOR: Amelia R H Urquhart** 
