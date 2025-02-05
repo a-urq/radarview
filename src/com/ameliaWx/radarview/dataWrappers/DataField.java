@@ -14,7 +14,7 @@ public class DataField {
 	private String annotation;
 	private HashMap<String, DataField> bundledFields = new HashMap<>();
 	
-	public static DataField fromNexradVar(Variable var) {
+	public static DataField fromCdmVar(Variable var) {
 		DataField field = new DataField();
 		Array arr = null;
 		try {
@@ -37,6 +37,29 @@ public class DataField {
 		}
 		
 		return field;
+	}
+	
+	public void processOffsets() {
+		boolean allNeededFieldsPresent = 
+				(bundledFields.containsKey("scale_factor")
+						&& bundledFields.containsKey("add_offset")
+						&& bundledFields.containsKey("fill_value"));
+		
+		if(!allNeededFieldsPresent) {
+			return;
+		}
+		
+		float scaleFactor = bundledFields.get("scale_factor").getData();
+		float addOffset = bundledFields.get("add_offset").getData();
+		float fillValue = bundledFields.get("fill_value").getData();
+		
+		for(int i = 0; i < data.length; i++) {
+			if(data[i] == fillValue) {
+				data[i] = -1024;
+				continue;
+			}
+			data[i] = (float) (scaleFactor * data[i] + addOffset);
+		}
 	}
 
 	public static DataField fromNexradAttr(Attribute attr) {
@@ -73,6 +96,30 @@ public class DataField {
 		return field;
 	}
 	
+	public static DataField fromNumber(double d) {
+		DataField field = new DataField();
+		field.shape = new int[1];
+		field.shapeMult = new int[field.shape.length];
+		field.shapeMult[0] = 1;
+
+		field.data = new float[1];
+		field.data[0] = (float) d;
+		
+		return field;
+	}
+	
+	public static DataField fromNumber(float f) {
+		DataField field = new DataField();
+		field.shape = new int[1];
+		field.shapeMult = new int[field.shape.length];
+		field.shapeMult[0] = 1;
+
+		field.data = new float[1];
+		field.data[0] = f;
+		
+		return field;
+	}
+	
 	public float getData() {
 		return getData(0);
 	}
@@ -89,6 +136,34 @@ public class DataField {
 		}
 		
 		return data[idx];
+	}
+	
+	// I nearly WAY overcomplicated writing this one
+	public float[] array1D() {
+		return data;
+	}
+	
+	public float[][] array2D() {
+		int[] array1DShape = new int[2];
+
+		for(int i = 0; i < array1DShape.length; i++) {
+			array1DShape[i] = 1;
+		}
+		
+		for(int i = 0; i < shape.length; i++) {
+			int idx = Integer.min(i, shape.length - 1);
+			
+			array1DShape[idx] *= shape[i];
+		}
+		
+		float[][] array = new float[array1DShape[0]][array1DShape[1]];
+		for(int i = 0; i < array.length; i++) {
+			for(int j = 0; j < array[i].length; j++) {
+				array[i][j] = getData(i, j);
+			}
+		}
+		
+		return array;
 	}
 
 	public String getAnnotation() {
