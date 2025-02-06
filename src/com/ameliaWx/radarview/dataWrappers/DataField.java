@@ -42,8 +42,7 @@ public class DataField {
 	public void processOffsets() {
 		boolean allNeededFieldsPresent = 
 				(bundledFields.containsKey("scale_factor")
-						&& bundledFields.containsKey("add_offset")
-						&& bundledFields.containsKey("fill_value"));
+						&& bundledFields.containsKey("add_offset"));
 		
 		if(!allNeededFieldsPresent) {
 			return;
@@ -51,12 +50,17 @@ public class DataField {
 		
 		float scaleFactor = bundledFields.get("scale_factor").getData();
 		float addOffset = bundledFields.get("add_offset").getData();
-		float fillValue = bundledFields.get("fill_value").getData();
+		float fillValue = -1024;
+		if(bundledFields.containsKey("fill_value")) {
+			fillValue = bundledFields.get("fill_value").getData();
+		}
 		
 		for(int i = 0; i < data.length; i++) {
-			if(data[i] == fillValue) {
-				data[i] = -1024;
-				continue;
+			if(bundledFields.containsKey("fill_value")) {
+				if(data[i] == fillValue) {
+					data[i] = -1024;
+					continue;
+				}
 			}
 			data[i] = (float) (scaleFactor * data[i] + addOffset);
 		}

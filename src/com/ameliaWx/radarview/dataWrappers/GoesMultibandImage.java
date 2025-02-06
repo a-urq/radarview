@@ -1,14 +1,54 @@
 package com.ameliaWx.radarview.dataWrappers;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
+
+import javax.imageio.ImageIO;
+
+import com.ameliaWx.radarview.gis.GeoCoord;
+import com.ameliaWx.radarview.gis.GeostationaryProjection;
 
 import ucar.nc2.NetcdfFile;
 
 public class GoesMultibandImage extends CdmFile implements SatelliteImage {
 	public static void main(String[] args) throws IOException {
-		GoesMultibandImage goes = GoesMultibandImage.loadFromFile(new File("/home/a-urq/eclipse-workspace/RadarViewTakeFour/goesTestData/fullDiskSector/OR_ABI-L2-MCMIPF-M6_G16_s20250352300203_e20250352309511_c20250352309594.nc"));
+		GoesMultibandImage goes = GoesMultibandImage.loadFromFile(new File("/home/a-urq/eclipse-workspace/RadarViewTakeFour/goesTestData/conusSector/20250205/OR_ABI-L2-MCMIPC-M6_G16_s20250361601171_e20250361603544_c20250361604065.nc"));
+		
+		float[] x = goes.field("x").array1D();
+		float[] y = goes.field("y").array1D();
+		
+		BufferedImage test = new BufferedImage(x.length, y.length, BufferedImage.TYPE_4BYTE_ABGR);
+		Graphics2D g = test.createGraphics();
+		
+		for(int i = 0; i < x.length; i++) {
+			for(int j = 0; j < y.length; j++) {
+				GeoCoord gc = GeostationaryProjection.GOES_EAST.projectXYToLatLon(x[i], y[j]);
+				
+				double red = (gc.getLat() + 360) % 10;
+				double greenBlue = (gc.getLon() + 720) % 10;
+				
+				if(Double.isNaN(gc.getLat())) {
+					red = 0;
+					greenBlue = 0;
+				}
+
+				if(Double.isNaN(gc.getLon())) {
+					red = 0;
+					greenBlue = 0;
+				}
+				
+				g.setColor(new Color((int) (25.5 * red), (int) (25.5 * greenBlue), (int) (25.5 * greenBlue)));
+				g.fillRect(i, j, 1, 1);
+			}
+		}
+		
+		ImageIO.write(test, "PNG", new File("latLonTest.png"));
+		
+		System.out.println("dx: " + goes.dataFromField("dx"));
+		System.out.println("dy: " + goes.dataFromField("dy"));
 	}
 
 	@SuppressWarnings("deprecation")
@@ -17,8 +57,9 @@ public class GoesMultibandImage extends CdmFile implements SatelliteImage {
 		
 		image.locationOnDisk = f.getAbsolutePath();
 		
-		@SuppressWarnings("deprecation")
 		NetcdfFile ncfile = NetcdfFile.open(image.locationOnDisk);
+		
+//		System.out.println(ncfile);
 		
 		image.permaFields.put("band_1", DataField.fromCdmVar(ncfile.findVariable("CMI_C01")));
 		image.permaFields.get("band_1").bundleField("scale_factor", DataField.fromNumber(ncfile.findVariable("CMI_C01").findAttributeDouble("scale_factor", -1024)));
@@ -54,9 +95,30 @@ public class GoesMultibandImage extends CdmFile implements SatelliteImage {
 		image.permaFields.get("band_13").bundleField("fill_value", DataField.fromNumber(ncfile.findVariable("CMI_C13").findAttributeDouble("_FillValue", -1024)));
 		image.permaFields.get("band_13").bundleField("wavelength", DataField.fromCdmVar(ncfile.findVariable("band_wavelength_C13")));
 		image.permaFields.get("band_13").processOffsets();
+
+		image.permaFields.put("x", DataField.fromCdmVar(ncfile.findVariable("x")));
+		image.permaFields.get("x").bundleField("scale_factor", DataField.fromNumber(ncfile.findVariable("x").findAttributeDouble("scale_factor", -1024)));
+		image.permaFields.get("x").bundleField("add_offset", DataField.fromNumber(ncfile.findVariable("x").findAttributeDouble("add_offset", -1024)));
+		image.permaFields.get("x").processOffsets();
+
+		image.permaFields.put("y", DataField.fromCdmVar(ncfile.findVariable("y")));
+		image.permaFields.get("y").bundleField("scale_factor", DataField.fromNumber(ncfile.findVariable("y").findAttributeDouble("scale_factor", -1024)));
+		image.permaFields.get("y").bundleField("add_offset", DataField.fromNumber(ncfile.findVariable("y").findAttributeDouble("add_offset", -1024)));
+		image.permaFields.get("y").processOffsets();
+
+		image.permaFields.put("dx", DataField.fromNumber(image.dataFromField("x", 1) - image.dataFromField("x", 0)));
+		image.permaFields.put("dy", DataField.fromNumber(image.dataFromField("y", 1) - image.dataFromField("y", 0)));
 		
 		image.permaFields.put("time_start", DataField.fromNexradAttrToStr(ncfile.findGlobalAttribute("time_coverage_start")));
 		image.permaFields.put("time_end", DataField.fromNexradAttrToStr(ncfile.findGlobalAttribute("time_coverage_end")));
+		image.permaFields.put("orbital_slot", DataField.fromNexradAttrToStr(ncfile.findGlobalAttribute("orbital_slot")));
+		
+		image.permaFields.put("goes_imager_projection", DataField.fromCdmVar(ncfile.findVariable("goes_imager_projection")));
+		image.permaFields.get("goes_imager_projection").bundleField("perspective_point_height", DataField.fromNumber(ncfile.findVariable("goes_imager_projection").findAttributeDouble("perspective_point_height", -1024)));
+		image.permaFields.get("goes_imager_projection").bundleField("semi_major_axis", DataField.fromNumber(ncfile.findVariable("goes_imager_projection").findAttributeDouble("semi_major_axis", -1024)));
+		image.permaFields.get("goes_imager_projection").bundleField("semi_minor_axis", DataField.fromNumber(ncfile.findVariable("goes_imager_projection").findAttributeDouble("semi_minor_axis", -1024)));
+		image.permaFields.get("goes_imager_projection").bundleField("latitude_origin", DataField.fromNumber(ncfile.findVariable("goes_imager_projection").findAttributeDouble("latitude_of_projection_origin", -1024)));
+		image.permaFields.get("goes_imager_projection").bundleField("longitude_origin", DataField.fromNumber(ncfile.findVariable("goes_imager_projection").findAttributeDouble("longitude_of_projection_origin", -1024)));
 		
 		ncfile.close();
 		return image;
@@ -106,6 +168,7 @@ public class GoesMultibandImage extends CdmFile implements SatelliteImage {
 		return swapFields.get(key).getData(indices);
 	}
 	
+	@SuppressWarnings("deprecation")
 	public void loadIntoSwap(String... keys) throws IOException {
 		NetcdfFile ncfile = NetcdfFile.open(locationOnDisk);
 		
